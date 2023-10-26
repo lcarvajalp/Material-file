@@ -1,0 +1,300 @@
+import os
+import csv
+import pandas as pd
+import tkinter as tk
+from tkinter import filedialog
+import math
+
+def mm_to_in(x):
+    try:
+        return round(int(float(x)) / 25.4, 1) if x is not None else None
+    except (ValueError, TypeError):
+        return None
+
+def qtycal(z):
+    try:
+        if z is not None:
+            z = z * 1.03  # Add 3% to z
+            if z >= 3048:
+                return math.ceil(z / 3048)
+            else:
+                return 1
+        else:
+            return None
+    except (ValueError, TypeError):
+        return None
+
+def lengthsub(i):
+    try:
+        if i >= 3048:
+            return 3048 if i is not None else None
+        #elif round(int(float(i)) / 3048, 0) == 0:
+         #   return 0
+        else:
+            return round(int(float(i)) + 912)
+    except (ValueError, TypeError):
+        return None
+    
+def subtract_punch_out(row, punch_out_column):
+    if row[punch_out_column] is not None:
+        return row['Length (inches)'] - row[punch_out_column]
+    else:
+        return None
+
+def punchcal(y, lengthmm_value):
+    try:
+        return round(lengthmm_value - (int(float(y)) / 25.4, 1)) if x is not None else None
+    except (ValueError, TypeError):
+        return None
+
+def swap_punch_out(df):
+    punch_out_columns = ['PUNCH OUT #1', 'PUNCH OUT #2', 'PUNCH OUT #3', 'PUNCH OUT #4', 'PUNCH OUT #5', 'PUNCH OUT #6', 'PUNCH OUT #7']
+
+    # Get the values for all punch out columns
+    punch_out_values = [df[col] for col in punch_out_columns if col in df]
+
+    # Remove None values from the list of punch out values
+    punch_out_values = [value for value in punch_out_values if value is not None]
+
+    # Sort the punch out values in descending order
+    punch_out_values.sort(reverse=True)
+
+    if len(punch_out_values) > 1:
+        # Update the corresponding columns in the DataFrame with the sorted punch out values
+        for i, col in enumerate(punch_out_columns[:len(punch_out_values)]):
+            df[col] = punch_out_values[i]
+
+    return df
+
+def select_directory():
+    root = tk.Tk()
+    root.withdraw()  # Hide the main window
+    folder_path = filedialog.askdirectory()
+    return folder_path
+
+# Directory containing your CSV files
+# csv_directory = select_directory()
+csv_directory = r'C:\Users\lpastran\OneDrive - Sto Group\Documents\Python Scripts\Material calculation with old format'
+
+
+# Get a list of CSV files in the directory
+csv_files = [file for file in os.listdir(csv_directory) if file.endswith('.csv')]
+
+# Initialize an empty DataFrame
+result_df = pd.DataFrame(columns=['INDUSTRY ID', 'Length (mm)', 'Length (inches)', 'Quantity','PUNCH OUT', 'PUNCH OUT #1', 'PUNCH OUT #2',
+                                  'PUNCH OUT #3', 'PUNCH OUT #4', 'PUNCH OUT #5', 'PUNCH OUT #6', 'PUNCH OUT #7'])
+
+bridging = '150U050-54'
+sumbrid = 0
+sum_s600s162_43 = 0
+sum_s600s162_54 = 0
+sum_600t125_43 = 0
+sum_600t125_54 = 0
+sum_600t200_54 = 0
+
+
+
+# Loop through each CSV file
+for csv_file in csv_files:
+    sumbrid_per_file = 0  # Initialize the sum for this file
+    csv_file_path = os.path.join(csv_directory, csv_file)
+    with open(csv_file_path, 'r') as csvfile:
+        # Skip the first 4 rows
+        for _ in range(4):
+            next(csvfile)
+
+        # Get the column names from the header
+        csvreader = csv.DictReader(csvfile)
+        
+        # Initialize empty lists to store data for each column for the current CSV file
+        industry_id = []
+        lengthmm = []
+        qty = []
+        punch = []
+        punchi = []
+
+        # Loop through the rows in the CSV file and append the data to the lists
+        for row in csvreader:
+            if 'MEMBER' in row and 'PUNCH OUTS' in row and 'LENGTH(mm)' in row and 'TOTAL' in row:
+                industry_id.append(row['MEMBER'])
+                # Replace '150T050-54' with '150U050-54' if it matches, otherwise keep the original value
+                punch.append(row['PUNCH OUTS'])
+                punch_values = row['PUNCH OUTS'].split(',')  # Split the values by comma
+                punch_value_1 = punch_values[0].strip() if len(punch_values) > 0 else None
+                punch_value_2 = punch_values[1].strip() if len(punch_values) > 1 else None
+                punch_value_3 = punch_values[2].strip() if len(punch_values) > 2 else None
+                punch_value_4 = punch_values[3].strip() if len(punch_values) > 3 else None
+                punch_value_5 = punch_values[4].strip() if len(punch_values) > 4 else None
+                punch_value_6 = punch_values[5].strip() if len(punch_values) > 5 else None
+                punch_value_7 = punch_values[6].strip() if len(punch_values) > 6 else None
+               
+                
+                punchi.append([punch_value_1, punch_value_2, punch_value_3, punch_value_4, punch_value_5, punch_value_6,
+                              punch_value_7])
+                
+
+                # Check if the 'LENGTH(mm)' column is empty or contains non-integer values
+                length_value = row['LENGTH(mm)'].strip()
+                lengthmm_value = int(length_value) if length_value.isdigit() else None
+                lengthmm.append(lengthmm_value)
+                
+                # Check if the 'TOTAL' column is empty or contains non-integer values
+                try:
+                    qty.append(int(row['TOTAL']))
+                    
+                except (ValueError, TypeError):
+                    # Handle invalid values (e.g., empty strings or non-integer values)
+                    qty.append(None)
+                    
+                
+                if bridging in row['MEMBER']:
+                    sumbrid_per_file += lengthmm_value * qty[-1]
+                elif '150T050-54' in row['MEMBER']:
+                    sumbrid_per_file += lengthmm_value * qty[-1]
+               
+                if '600S162-43' in row['MEMBER'] and int(row['LENGTH(mm)']) <912:
+                    sum_s600s162_43 += lengthmm_value * qty[-1]
+                    
+                if '600S162-54' in row['MEMBER'] and int(row['LENGTH(mm)']) <912:
+                    sum_s600s162_54 += lengthmm_value * qty[-1]
+                
+                if '600T125-43' in row['MEMBER'] and int(row['LENGTH(mm)']) <912:
+                    sum_600t125_43 += lengthmm_value * qty[-1]
+                
+                if '600T125-54' in row['MEMBER'] and int(row['LENGTH(mm)']) <912:
+                    sum_600t125_54 += lengthmm_value * qty[-1]
+                    
+                if '600T200-54' in row['MEMBER'] and int(row['LENGTH(mm)']) <912:
+                    sum_600t200_54 += lengthmm_value * qty[-1]
+        
+        sumbrid += sumbrid_per_file
+           
+        # Ensure all lists have the same length
+        list_length = len(industry_id)
+        
+        # Loop through the lists and update the DataFrame
+        for i in range(list_length):
+            
+                
+            
+            # Check if the combination of 'INDUSTRY ID' and 'Length (mm)' and PUNCH OUTS already exists in the result DataFrame
+            matching_rows = result_df[
+                (result_df['INDUSTRY ID'] == industry_id[i]) &
+                (result_df['Length (mm)'] == lengthmm[i]) &
+                (result_df['PUNCH OUT'] == punch[i])]
+                    
+                
+            
+
+            if not matching_rows.empty:
+                # Rows with the same 'INDUSTRY ID' and 'Length (mm)' exist; update their 'Quantity'
+                index = matching_rows.index[0]
+                result_df.at[index, 'Quantity'] += qty[i]
+                
+                
+            else:
+
+                # No matching rows found; add a new row to the result DataFrame
+                data = {'INDUSTRY ID': industry_id[i], 'Length (mm)': lengthmm[i],
+                        'PUNCH OUT #1': mm_to_in(punchi[i][0]), 'PUNCH OUT #2': mm_to_in(punchi[i][1]), 
+                        'PUNCH OUT #3': mm_to_in(punchi[i][2]), 'PUNCH OUT #4': mm_to_in(punchi[i][3]),
+                        'PUNCH OUT #5': mm_to_in(punchi[i][4]), 'PUNCH OUT #6': mm_to_in(punchi[i][5]),
+                        'PUNCH OUT #7': mm_to_in(punchi[i][6]), 
+                        'Quantity': qty[i], 'PUNCH OUT': punch[i]} 
+                
+                result_df = result_df.apply(swap_punch_out, axis=1)
+                
+                new_df = pd.DataFrame([data], index=[0])
+                
+                result_df = pd.concat([result_df, new_df], ignore_index=True)
+                
+            
+# Filter rows where 'INDUSTRY ID' does not contain 'x' or 'U'
+
+
+result_df = result_df[~result_df['INDUSTRY ID'].str.contains('x|U|150T050-54', case=False, regex=True, na=False)]
+
+# Calculate how many Bridgings are necessary and round up with no decimals
+
+
+
+items_to_add = []
+
+# Calculate the 'Length (inches)' column by converting 'Length (mm)' to inches
+#new_itembrid = {'INDUSTRY ID': bridging, 'Length (mm)': sumbrid, 'Length (inches)': 120, 'Quantity': qtycal(sumbrid)}
+#new_item_df = pd.DataFrame([new_itembrid], index=[0])
+
+result_df['Length (inches)'] = result_df['Length (mm)'].apply(mm_to_in)
+result_df['Length (inches)'] = result_df['Length (inches)'].round(1)
+
+item1 = {'INDUSTRY ID': '600S162-43', 'Length (mm)': lengthsub(sum_s600s162_43), 'Length (inches)': 120, 'Quantity': qtycal(sum_s600s162_43)}
+item2 = {'INDUSTRY ID': '600S162-54', 'Length (mm)': lengthsub(sum_s600s162_54), 'Length (inches)': 120, 'Quantity': qtycal(sum_s600s162_54)}
+item3 = {'INDUSTRY ID': '600T125-43', 'Length (mm)': lengthsub(sum_600t125_43), 'Length (inches)': 120, 'Quantity': qtycal(sum_600t125_43)}
+item4 = {'INDUSTRY ID': '600T200-54', 'Length (mm)': lengthsub(sum_600t200_54), 'Length (inches)': 120, 'Quantity': qtycal(sum_600t200_54)}
+item5 = {'INDUSTRY ID': bridging, 'Length (mm)': sumbrid, 'Length (inches)': 120, 'Quantity': qtycal(sumbrid)}
+item6 = {'INDUSTRY ID': '600T125-54', 'Length (mm)': lengthsub(sum_600t125_54), 'Length (inches)': 120, 'Quantity': qtycal(sum_600t125_54)}
+
+items_to_add.extend([item1, item2, item3, item4, item5, item6])
+
+# Create an empty DataFrame for the short items
+shortitems_df = pd.DataFrame(columns=result_df.columns)
+
+for item in items_to_add:
+    new_item_df = pd.DataFrame([item], index=[0])
+    shortitems_df = pd.concat([shortitems_df, new_item_df], ignore_index=True)
+    
+
+
+
+
+# Concatenate the new item DataFrame with the existing result_df
+
+
+
+
+
+# Calculate Length - Punch Out #1
+result_df['PUNCH OUT #1'] = result_df.apply(subtract_punch_out, args=('PUNCH OUT #1',), axis=1)
+result_df['PUNCH OUT #2'] = result_df.apply(subtract_punch_out, args=('PUNCH OUT #2',), axis=1)
+result_df['PUNCH OUT #3'] = result_df.apply(subtract_punch_out, args=('PUNCH OUT #3',), axis=1)
+result_df['PUNCH OUT #4'] = result_df.apply(subtract_punch_out, args=('PUNCH OUT #4',), axis=1)
+result_df['PUNCH OUT #5'] = result_df.apply(subtract_punch_out, args=('PUNCH OUT #5',), axis=1)
+result_df['PUNCH OUT #6'] = result_df.apply(subtract_punch_out, args=('PUNCH OUT #6',), axis=1)
+result_df['PUNCH OUT #7'] = result_df.apply(subtract_punch_out, args=('PUNCH OUT #7',), axis=1)
+
+# Group the DataFrame by 'INDUSTRY ID' and 'Length (mm)' and sum the 'Quantity' within each group
+result_df = result_df.groupby(['INDUSTRY ID', 'Length (mm)','PUNCH OUT' ]).agg({
+    'Length (inches)': 'first',  # Take the first 'Length (inches)' value within the group
+    'Quantity': 'sum',
+    'PUNCH OUT #1': 'first',  # Take the first 'PUNCH OUT #1' value within the group
+    'PUNCH OUT #2': 'first',   # Take the first 'PUNCH OUT #2' value within the group
+    'PUNCH OUT #3': 'first',  # Take the first 'PUNCH OUT #1' value within the group
+    'PUNCH OUT #4': 'first',   # Take the first 'PUNCH OUT #2' value within the group
+    'PUNCH OUT #5': 'first',  # Take the first 'PUNCH OUT #1' value within the group
+    'PUNCH OUT #6': 'first',   # Take the first 'PUNCH OUT #2' value within the group
+    'PUNCH OUT #7': 'first'  # Take the first 'PUNCH OUT #1' value within the group
+    
+   
+}).reset_index()
+result_df = result_df.sort_values(by=['INDUSTRY ID', 'Length (mm)'], ascending=True)
+# Remove the 'PUNCH OUT' column
+
+
+
+
+
+
+
+result_df = pd.concat([result_df, shortitems_df], ignore_index=True)
+
+result_df = result_df[result_df['Length (mm)'] >= 912]
+result_df = result_df.rename(columns={'PUNCH OUT #1': '#1', 'PUNCH OUT #2': '#2',
+                                     'PUNCH OUT #3': '#3','PUNCH OUT #4': '#4',
+                                     'PUNCH OUT #5': '#5','PUNCH OUT #6': '#6',
+                                     'PUNCH OUT #7': '#7',})
+result_df = result_df.drop(columns=['PUNCH OUT'])
+result_df = result_df.sort_values(by=['INDUSTRY ID', 'Length (mm)'], ascending=True)
+result_df.to_excel('punchresult.xlsx', sheet_name='CFS Calculation', index=False)
+
+
+print('Done')
